@@ -3,7 +3,6 @@ name: Auto build Aseprite
 on:
   push:
     branches: main
-
   workflow_dispatch:
 
 permissions:
@@ -35,13 +34,19 @@ jobs:
         with:
           arch: x64
 
+      # 🔧 NUEVO PASO: instalar OpenSSL 1.1
+      - name: Install OpenSSL 1.1
+        run: |
+          choco install openssl --version=1.1.1.2100 -y
+
       - name: Build Aseprite
         run: |
           mkdir build
           cd build
           cmake "${{ github.workspace }}/src/aseprite" -G Ninja -DCMAKE_BUILD_TYPE=MinSizeRel -DLAF_BACKEND=skia -DSKIA_DIR="${{ github.workspace }}/src/skia" -DSKIA_LIBRARY_DIR="${{ github.workspace }}/src/skia/out/Release-x64" -DSKIA_LIBRARY="${{ github.workspace }}/src/skia/out/Release-x64/skia.lib"
           cmake --build . --config MinSizeRel --target aseprite
-          copy "C:/Windows/System32/libcrypto-1_1-x64.dll" ./bin
+          copy "C:/Program Files/OpenSSL-Win64/bin/libcrypto-1_1-x64.dll" ./bin
+          copy "C:/Program Files/OpenSSL-Win64/bin/libssl-1_1-x64.dll" ./bin
 
       - name: Get version
         id: get_version
