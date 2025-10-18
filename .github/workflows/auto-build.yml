@@ -2,7 +2,7 @@ name: Auto build Aseprite
 
 on:
   push:
-    branches: main
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -34,55 +34,33 @@ jobs:
         with:
           arch: x64
 
-      # 🔧 Instalar OpenSSL 1.1 (requerido por Aseprite)
-      - name: Install OpenSSL 1.1
+      # ✅ Instalar OpenSSL 3.x
+      - name: Install OpenSSL 3.x
         run: |
-          choco install openssl --version=1.1.1.2100 -y
+          choco install openssl --version=3.3.2 -y
 
-      # 🧩 Compilar Aseprite y copiar DLLs dinámicamente
       - name: Build Aseprite
         shell: pwsh
         run: |
           mkdir build
           cd build
-          cmake "${{ github.workspace }}/src/aseprite" -G Ninja -DCMAKE_BUILD_TYPE=MinSizeRel -DLAF_BACKEND=skia -DSKIA_DIR="${{ github.workspace }}/src/skia" -DSKIA_LIBRARY_DIR="${{ github.workspace }}/src/skia/out/Release-x64" -DSKIA_LIBRARY="${{ github.workspace }}/src/skia/out/Release-x64/skia.lib"
+          cmake "${{ github.workspace }}/src/aseprite" `
+            -G Ninja `
+            -DCMAKE_BUILD_TYPE=MinSizeRel `
+            -DLAF_BACKEND=skia `
+            -DSKIA_DIR="${{ github.workspace }}/src/skia" `
+            -DSKIA_LIBRARY_DIR="${{ github.workspace }}/src/skia/out/Release-x64" `
+            -DSKIA_LIBRARY="${{ github.workspace }}/src/skia/out/Release-x64/skia.lib"
           cmake --build . --config MinSizeRel --target aseprite
 
-          # Buscar instalación de OpenSSL y copiar DLLs correctas
-          $opensslPaths = @(
-            "C:/Program Files/OpenSSL-Win64/bin",
-            "C:/Program Files/OpenSSL/bin",
-            "C:/Program Files/OpenSSL-Win64_1_1_1/bin",
-            "C:/Program Files (x86)/OpenSSL-Win64/bin"
-          )
-
-          $found = $false
-          foreach ($path in $opensslPaths) {
-            if (Test-Path "$path/libcrypto-1_1-x64.dll") {
-              Write-Host "✅ Found OpenSSL 1.1 at $path"
-              copy "$path/libcrypto-1_1-x64.dll" ./bin
-              copy "$path/libssl-1_1-x64.dll" ./bin
-              $found = $true
-              break
-            }
-          }
-
-          if (-not $found) {
-            Write-Host "⚠️ OpenSSL 1.1 not found, trying version 3..."
-            foreach ($path in $opensslPaths) {
-              if (Test-Path "$path/libcrypto-3-x64.dll") {
-                Write-Host "✅ Found OpenSSL 3 at $path"
-                copy "$path/libcrypto-3-x64.dll" ./bin
-                copy "$path/libssl-3-x64.dll" ./bin
-                $found = $true
-                break
-              }
-            }
-          }
-
-          if (-not $found) {
-            Write-Error "❌ Could not find OpenSSL DLLs in any known location."
-            exit 1
+          # ✅ Buscar OpenSSL 3 y copiar DLLs
+          $opensslPath = Get-ChildItem "C:\Program Files" -Recurse -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -like "OpenSSL-Win64" } | Select-Object -First 1
+          if ($opensslPath) {
+            Copy-Item "$($opensslPath.FullName)\bin\libcrypto-3-x64.dll" .\bin -ErrorAction SilentlyContinue
+            Copy-Item "$($opensslPath.FullName)\bin\libssl-3-x64.dll" .\bin -ErrorAction SilentlyContinue
+          } else {
+            Write-Host "⚠️ OpenSSL 3.x path not found"
           }
 
       - name: Get version
