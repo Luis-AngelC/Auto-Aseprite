@@ -34,40 +34,86 @@ jobs:
         with:
           arch: x64
 
-  
-    
-            # ✅ Instalar OpenSSL 3.3.2 desde GitHub (binario oficial)
       - name: Install OpenSSL via vcpkg
         shell: pwsh
         run: |
           vcpkg install openssl:x64-windows
           vcpkg integrate install
 
-
-
-
       - name: Build Aseprite
         shell: pwsh
         run: |
           mkdir build
           cd build
+          
+          # Configurar CMake con vcpkg toolchain
           cmake "${{ github.workspace }}/src/aseprite" `
             -G Ninja `
             -DCMAKE_BUILD_TYPE=MinSizeRel `
+            -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake `
             -DLAF_BACKEND=skia `
             -DSKIA_DIR="${{ github.workspace }}/src/skia" `
             -DSKIA_LIBRARY_DIR="${{ github.workspace }}/src/skia/out/Release-x64" `
             -DSKIA_LIBRARY="${{ github.workspace }}/src/skia/out/Release-x64/skia.lib"
+          
+          # Compilar Aseprite
           cmake --build . --config MinSizeRel --target aseprite
-
-          # ✅ Buscar OpenSSL 3 y copiar DLLs
-          $opensslPath = Get-ChildItem "C:\Program Files" -Recurse -Directory -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -like "OpenSSL-Win64" } | Select-Object -First 1
-          if ($opensslPath) {
-            Copy-Item "$($opensslPath.FullName)\bin\libcrypto-3-x64.dll" .\bin -ErrorAction SilentlyContinue
-            Copy-Item "$($opensslPath.FullName)\bin\libssl-3-x64.dll" .\bin -ErrorAction SilentlyContinue
-          } else {
-            Write-Host "⚠️ OpenSSL 3.x path not found"
+          
+          Write-Host "=== Compilación completada ==="
+          Write-Host "Contenido de bin antes de copiar DLLs:"
+          Get-ChildItem .\bin
+          
+          # Copiar DLLs de OpenSSL desde vcpkg (ubicación correcta)
+          $vcpkgPaths = @(
+            "C:\vcpkg\packages\openssl_x64-windows\bin",
+            "C:\vcpkg\installed\x64-windows\bin"
+          )
+          
+          $dllsCopied = $false
+          foreach ($path in $vcpkgPaths) {
+            if (Test-Path $path) {
+              Write-Host "=== Buscando DLLs en: $path ==="
+              $dlls = Get-ChildItem $path -Filter "*.dll" -ErrorAction SilentlyContinue
+              
+              if ($dlls) {
+                Write-Host "DLLs encontradas:"
+                $dlls | ForEach-Object { Write-Host "  - $($_.Name)" }
+                
+                # Copiar todas las DLLs de OpenSSL
+                Copy-Item "$path\libcrypto*.dll" .\bin -Force -ErrorAction SilentlyContinue
+                Copy-Item "$path\libssl*.dll" .\bin -Force -ErrorAction SilentlyContinue
+                $dllsCopied = $true
+                Write-Host "✅ OpenSSL DLLs copiadas desde: $path"
+                break
+              }
+            }
+          }
+          
+          if (-not $dllsCopied) {
+            Write-Host "⚠️ ADVERTENCIA: No se encontraron DLLs de OpenSSL"
+            Write-Host "Buscando en todo C:\vcpkg..."
+            $foundDlls = Get-ChildItem "C:\vcpkg" -Recurse -Filter "libcrypto*.dll" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($foundDlls) {
+              $dllPath = Split-Path $foundDlls.FullName
+              Write-Host "Encontradas en: $dllPath"
+              Copy-Item "$dllPath\libcrypto*.dll" .\bin -Force
+              Copy-Item "$dllPath\libssl*.dll" .\bin -Force
+              Write-Host "✅ DLLs copiadas desde ubicación alternativa"
+            }
+          }
+          
+          Write-Host "`n=== Verificación final ==="
+          Write-Host "Contenido completo de bin:"
+          Get-ChildItem .\bin | Format-Table Name, Length, LastWriteTime
+          
+          Write-Host "`n=== Verificando DLLs específicas ==="
+          $requiredDlls = @("libcrypto-3-x64.dll", "libssl-3-x64.dll")
+          foreach ($dll in $requiredDlls) {
+            if (Test-Path ".\bin\$dll") {
+              Write-Host "✅ $dll - Presente"
+            } else {
+              Write-Host "❌ $dll - FALTA"
+            }
           }
 
       - name: Get version
@@ -76,10 +122,22 @@ jobs:
           $version = Get-Content version.txt
           echo "version=$version" >> $env:GITHUB_OUTPUT
 
+      - name: Verify files before zip
+        shell: pwsh
+        run: |
+          Write-Host "=== Archivos que se incluirán en el release ==="
+          Get-ChildItem build\bin -Recurse | Format-Table Name, Length
+
       - name: Zip Aseprite
         run: |
           cd build/bin
           7z a ../../Aseprite-Windows-x64-${{ steps.get_version.outputs.version }}.zip *
+
+      - name: Verify zip contents
+        shell: pwsh
+        run: |
+          Write-Host "=== Contenido del ZIP ==="
+          7z l Aseprite-Windows-x64-${{ steps.get_version.outputs.version }}.zip
 
       - name: GH Release
         uses: softprops/action-gh-release@v2
