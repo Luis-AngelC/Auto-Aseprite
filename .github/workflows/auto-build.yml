@@ -34,10 +34,17 @@ jobs:
         with:
           arch: x64
 
-      # ✅ Instalar OpenSSL 3.x
-      - name: Install OpenSSL 3.x
+  
+           # ✅ Instalar OpenSSL 3.3.2 manualmente (mirror alternativo)
+      - name: Install OpenSSL 3.3.2 manually
+        shell: pwsh
         run: |
-          choco install openssl --version=3.3.3 -y
+          $url = "https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.3.2-win64.msi"
+          $output = "C:\openssl-3.3.2-win64.msi"
+          Invoke-WebRequest -Uri $url -OutFile $output
+          Start-Process msiexec.exe -Wait -ArgumentList "/i $output /qn /norestart"
+          Write-Host "✅ OpenSSL 3.3.2 installed successfully."
+
 
       - name: Build Aseprite
         shell: pwsh
