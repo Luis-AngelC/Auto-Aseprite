@@ -40,11 +40,14 @@ jobs:
       - name: Install OpenSSL 3.3.2 manually
         shell: pwsh
         run: |
-          $url = "https://github.com/firedaemon/FireDaemon-OpenSSL/releases/download/v3.3.2/openssl-3.3.2-win64.msi"
-          $output = "$env:TEMP\openssl-3.3.2-win64.msi"
+          $url = "https://github.com/firedaemon/FireDaemon-OpenSSL/releases/download/v3.3.2/FireDaemon-OpenSSL-3.3.2-win64.msi"
+          $output = "$env:TEMP\FireDaemon-OpenSSL-3.3.2-win64.msi"
+
           Invoke-WebRequest -Uri $url -OutFile $output -UseBasicParsing
           Start-Process msiexec.exe -Wait -ArgumentList "/i `"$output`" /qn /norestart"
+
           Write-Host "✅ OpenSSL 3.3.2 installed successfully."
+
 
 
 
