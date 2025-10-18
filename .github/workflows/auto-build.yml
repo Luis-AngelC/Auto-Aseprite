@@ -37,7 +37,7 @@ jobs:
       # ✅ Instalar OpenSSL 3.x
       - name: Install OpenSSL 3.x
         run: |
-          choco install openssl --version=3.3.2 -y
+          choco install openssl --version=3.3.3 -y
 
       - name: Build Aseprite
         shell: pwsh
