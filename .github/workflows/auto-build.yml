@@ -35,13 +35,17 @@ jobs:
           arch: x64
 
   
-           # ✅ Instalar OpenSSL 3.3.2 manualmente (mirror alternativo)
+    
+            # ✅ Instalar OpenSSL 3.3.2 desde GitHub (binario oficial)
       - name: Install OpenSSL 3.3.2 manually
         shell: pwsh
         run: |
-          $url = "https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.3.2-win64.msi"
-          $output = "C:\openssl-3.3.2-win64.msi"
+          $url = "https://github.com/firedaemon/FireDaemon-OpenSSL/releases/download/v3.3.2/openssl-3.3.2-win64.msi"
+          $output = "$env:TEMP\openssl-3.3.2-win64.msi"
+          Invoke-WebRequest -Uri $url -OutFile $output -UseBasicParsing
+          Start-Process msiexec.exe -Wait -ArgumentList "/i `"$output`" /qn /norestart"
           Write-Host "✅ OpenSSL 3.3.2 installed successfully."
+
 
 
       - name: Build Aseprite
